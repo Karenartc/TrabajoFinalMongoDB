@@ -1,0 +1,282 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manejo de Base de Datos Mongo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 300px;
+            padding: 5px;
+            margin-right: 10px;
+        }
+
+        button[type="submit"] {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            margin-top: 30px;
+        }
+
+        h3 {
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        textarea {
+            resize: none;
+            width: 100%;
+            max-width: 600px;
+            height: 100px;
+        }
+
+        #documentsList {
+            margin-top: 10px;
+        }
+
+        #documentsList li {
+            background-color: #f9f9f9;
+            padding: 5px;
+            border: 1px solid #ddd;
+        }
+
+        #documentsList li:nth-child(2n) {
+            background-color: #f2f2f2;
+        }
+
+        #documentsList li:hover {
+            background-color: #e1e1e1;
+        }
+    
+        form[action="/deleteCollection"] button[type="submit"] {
+            background-color: red;
+        }
+        form[action="/createCollection"] button[type="submit"] {
+            background-color: green;
+        }
+        button[onclick^="toggleDocuments"] {
+            background-color: rgb(141, 90, 3);
+        }
+        ul li form[action="/selectCollection"] button[type="submit"],
+        ul li form[action="/selectCollection"] button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        button[type="submit"] {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+        form[action="/deleteDatabase"] button[type="submit"] {
+            background-color: red;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Manejo de MongoDB</h1>
+
+    <!-- Formulario para crear y eliminar base de datos -->
+    <form id="databaseCollectionForm" action="/createDatabaseCollection" method="POST">
+        <label for="databaseName">Nombre de la Base de Datos:</label>
+        <input type="text" id="databaseName" name="databaseName" required>
+        <label for="collectionName">Nombre de la Colección:</label>
+        <input type="text" id="collectionName" name="collectionName" required>
+        <button type="submit" id="createDatabaseCollectionBtn">Crear Base de Datos y Colección</button>
+    </form>
+
+    <h2>Bases de Datos existentes:</h2>
+    <ul>
+        {% for database_name in database_names %}
+            <li>
+                <form action="/selectDatabase" method="POST">
+                    <input type="hidden" name="databaseName" value="{{ database_name }}">
+                    <button type="submit">{{ database_name }}</button>
+                </form>
+                {% if selected_database == database_name %}
+                    <form action="/deleteDatabase" method="POST">
+                        <input type="hidden" name="databaseName" value="{{ database_name }}">
+                        <button type="submit">Eliminar</button>
+                    </form>
+                    <h3>Agregar nueva colección:</h3>
+                    <form action="/createCollection" method="POST">
+                        <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                        <label for="newCollectionName">Nombre de la nueva colección:</label>
+                        <input type="text" id="newCollectionName" name="newCollectionName" required>
+                        <button type="submit">Crear Colección</button>
+                    </form>
+                    <h3>Colecciones en la base de datos seleccionada:</h3>
+                    <ul>
+                        {% for collection_name in collections %}
+                            <li>
+                                <form action="/selectCollection" method="POST">
+                                    <input type="hidden" name="collectionName" value="{{ collection_name }}">
+                                    <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                                    <button type="submit">{{ collection_name }}</button>
+                                </form>
+                                {% if selected_collection == collection_name %}
+                                    <form action="/deleteCollection" method="POST">
+                                        <input type="hidden" name="collectionName" value="{{ collection_name }}">
+                                        <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                                        <button type="submit">Eliminar</button>
+                                    </form>
+                                    <button onclick="toggleDocuments('{{ collection_name }}')">Documentos</button>
+                                    <div id="{{ collection_name }}-documents" style="display: none;">
+                                        <!-- Formulario para mostrar documentos con una condición -->
+                                        <h3>Mostrar documentos que cumplan con la condición:</h3>
+                                        <form action="/showDocumentsWithCondition" method="POST">
+                                            <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                                            <input type="hidden" name="collectionName" value="{{ selected_collection }}">
+                                            <label for="queryCondition">Condición de búsqueda (JSON):</label>
+                                            <textarea id="queryCondition" name="queryCondition" rows="2" cols="50" placeholder="Ejemplo: {&quot;nombre&quot;: &quot;Maria&quot;} Nota: Coloca solo {} para ver todos los documentos"></textarea>
+                                            <button type="submit">Mostrar Documentos</button>
+                                        </form>
+                                        <!-- Formulario para insertar documentos -->
+                                        <h3>Insertar documentos:</h3>
+                                        <form action="/insertDocuments" method="POST">
+                                            <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                                            <input type="hidden" name="collectionName" value="{{ collection_name }}">
+                                            <label for="newDocuments">Insertar uno o más documentos (JSON):</label>
+                                            <textarea id="newDocuments" name="newDocuments" rows="5" cols="50" required placeholder="Ejemplo: {&quot;nombre&quot;: &quot;Ejemplo1&quot;, &quot;edad&quot;: 30}"></textarea>
+                                            <button type="submit">Insertar Documentos</button>
+                                        </form>
+                                        <h3>Actualizar documentos:</h3>
+                                        <form action="/updateDocuments" method="POST">
+                                            <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                                            <input type="hidden" name="collectionName" value="{{ selected_collection }}">
+                                            <label for="updateCondition">Condición de búsqueda (JSON):</label>
+                                            <textarea id="updateCondition" name="updateCondition" rows="1" cols="10" placeholder="Ejemplo: {&quot;nombre&quot;: &quot;Maria&quot;}"></textarea>
+                                            <br>
+                                            <label for="updateValue">Valor de actualización (JSON):</label>
+                                            <textarea id="updateValue" name="updateValue" rows="1" cols="10" placeholder="Ejemplo: {&quot;edad&quot;: 31}"></textarea>
+                                            <button type="submit">Actualizar Documentos</button>
+                                        </form>
+
+                                        <!-- Formulario para insertar documentos -->
+                                        <h3>Eliminar documentos (por condición):</h3>
+                                        <form action="/deleteDocuments" method="POST">
+                                            <input type="hidden" name="databaseName" value="{{ selected_database }}">
+                                            <input type="hidden" name="collectionName" value="{{ selected_collection }}">
+                                            <label for="deleteCondition">Condición de eliminación (JSON):</label>
+                                            <textarea id="deleteCondition" name="deleteCondition" rows="2" cols="50" placeholder="Ejemplo: {&quot;nombre&quot;: &quot;Maria&quot}"></textarea>
+                                            <button type="submit">Eliminar Documentos</button>
+                                        </form>
+                                    
+
+                                    </div>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+
+    <script>
+        function toggleDocuments(collectionName) {
+            var documentsDiv = document.getElementById(collectionName + "-documents");
+            if (documentsDiv.style.display === "none") {
+                documentsDiv.style.display = "block";
+                getDocuments(collectionName); // Pasamos el nombre de la colección como argumento
+            } else {
+                documentsDiv.style.display = "none";
+            }
+        }
+    
+        function getDocuments(collectionName) {
+            // Obtener el nombre de la base de datos seleccionada
+            var selectedDatabase = "{{ selected_database }}";
+    
+            fetch('/showDocuments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ databaseName: selectedDatabase, collectionName: collectionName }) // Pasamos el nombre de la colección en el cuerpo de la solicitud
+            })
+            .then(response => response.json())
+            .then(data => {
+                var documentsDiv = document.getElementById(collectionName + "-documents");
+                var documentsList = documentsDiv.querySelector("#documentsList");
+                documentsList.innerHTML = ""; // Limpiar la lista anterior de documentos
+    
+                if (data.error) {
+                    var errorItem = document.createElement("li");
+                    errorItem.textContent = data.error;
+                    documentsList.appendChild(errorItem);
+                } else if (data.message) {
+                    var messageItem = document.createElement("li");
+                    messageItem.textContent = data.message;
+                    documentsList.appendChild(messageItem);
+                } else {
+                    data.forEach(document => {
+                        var documentItem = document.createElement("li");
+                        documentItem.textContent = JSON.stringify(document);
+                        documentsList.appendChild(documentItem);
+                    });
+                }
+            })
+            .catch(error => console.error('Error al obtener los documentos:', error));
+        }
+    </script>
+    
+    
+</body>
+</html>
+
